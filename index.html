@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RemindMe — Chrome Extension</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #070710;
+      --surface: #10101c;
+      --surface2: #17172a;
+      --border: #252540;
+      --accent: #7c6af7;
+      --accent2: #f06292;
+      --text: #eeeef8;
+      --muted: #6868a0;
+      --success: #4ade80;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ─── NOISE OVERLAY ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 64px;
+      background: rgba(7,7,16,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .nav-icon {
+      width: 34px;
+      height: 34px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+    }
+
+    .nav-title {
+      font-size: 18px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #a78bfa, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* ─── LANG TOGGLE ─── */
+    .lang-toggle {
+      display: flex;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .lang-btn {
+      padding: 6px 14px;
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .lang-btn.active {
+      background: linear-gradient(135deg, var(--accent), #6c5ce7);
+      color: white;
+    }
+
+    .nav-cta {
+      background: linear-gradient(135deg, var(--accent), #6c5ce7);
+      color: white;
+      border: none;
+      padding: 9px 20px;
+      border-radius: 8px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-cta:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(124,106,247,0.35);
+    }
+
+    /* ─── HERO ─── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 100px 40px 80px;
+      position: relative;
+      text-align: center;
+    }
+
+    .hero-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .hero-glow2 {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(240,98,146,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      top: 30%; left: 60%;
+      transform: translate(-50%, -50%);
+    }
+
+    .hero-content { position: relative; max-width: 700px; }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(124,106,247,0.12);
+      border: 1px solid rgba(124,106,247,0.3);
+      color: #a78bfa;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-title {
+      font-size: clamp(42px, 7vw, 72px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      margin-bottom: 22px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .hero-title .grad {
+      background: linear-gradient(135deg, #a78bfa, #f472b6, #fb923c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 500px;
+      margin: 0 auto 40px;
+      font-weight: 400;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .btn-hero {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.25s;
+      border: none;
+    }
+
+    .btn-hero-primary {
+      background: linear-gradient(135deg, var(--accent), #6c5ce7);
+      color: white;
+    }
+
+    .btn-hero-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(124,106,247,0.4);
+    }
+
+    .btn-hero-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-hero-outline:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    /* ─── EXTENSION PREVIEW ─── */
+    .preview-section {
+      display: flex;
+      justify-content: center;
+      padding: 0 40px 80px;
+    }
+
+    .ext-preview {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      width: 340px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(124,106,247,0.1);
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+
+    .ext-header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .ext-brand { display: flex; align-items: center; gap: 8px; }
+
+    .ext-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .ext-name {
+      font-size: 15px; font-weight: 800; letter-spacing: -0.3px;
+      background: linear-gradient(90deg, #a78bfa, #f472b6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .ext-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+
+    .ext-tab {
+      flex: 1; padding: 9px; text-align: center;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; color: var(--muted);
+    }
+
+    .ext-tab.a {
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+      background: rgba(124,106,247,0.08);
+    }
+
+    .ext-body { padding: 16px; }
+
+    .ext-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 5px; font-weight: 700; }
+    .ext-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 11px; font-size: 12px;
+      color: var(--text); font-family: 'DM Mono', monospace;
+      width: 100%; margin-bottom: 12px;
+    }
+    .ext-input.focus { border-color: var(--accent); }
+
+    .ext-btn {
+      width: 100%; padding: 10px;
+      background: linear-gradient(135deg, var(--accent), #6c5ce7);
+      color: white; border: none; border-radius: 8px;
+      font-family: 'Syne', sans-serif; font-weight: 700;
+      font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase;
+      cursor: default;
+    }
+
+    /* ─── FEATURES ─── */
+    section {
+      padding: 80px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-title {
+      text-align: center;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      font-size: 15px;
+      margin-bottom: 56px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(124,106,247,0.05), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(124,106,247,0.4);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.3);
+    }
+
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      font-size: 28px;
+      margin-bottom: 14px;
+    }
+
+    .feature-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ─── HOW TO INSTALL ─── */
+    .install-section {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .step {
+      display: flex;
+      gap: 24px;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .step:last-child { border-bottom: none; }
+
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), #6c5ce7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 800;
+      flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(124,106,247,0.3);
+    }
+
+    .step-content { flex: 1; padding-top: 4px; }
+
+    .step-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .step-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .code-tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+      display: inline-block;
+    }
+
+    /* ─── DOWNLOAD SECTION ─── */
+    .download-box {
+      background: linear-gradient(135deg, rgba(124,106,247,0.1), rgba(240,98,146,0.06));
+      border: 1px solid rgba(124,106,247,0.25);
+      border-radius: 20px;
+      padding: 48px;
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .download-box::before {
+      content: '⏰';
+      position: absolute;
+      font-size: 200px;
+      opacity: 0.04;
+      top: -20px; right: -20px;
+      pointer-events: none;
+    }
+
+    .download-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+
+    .download-sub {
+      color: var(--muted);
+      font-size: 14px;
+      font-family: 'DM Mono', monospace;
+      margin-bottom: 28px;
+      line-height: 1.7;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 36px;
+      background: linear-gradient(135deg, var(--accent), #6c5ce7);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.25s;
+      letter-spacing: -0.3px;
+    }
+
+    .btn-download:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 16px 40px rgba(124,106,247,0.45);
+    }
+
+    .download-meta {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .download-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .check { color: var(--success); }
+
+    /* ─── FOOTER ─── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 600px) {
+      nav { padding: 0 20px; }
+      .hero { padding: 90px 20px 60px; }
+      section { padding: 60px 20px; }
+      .download-box { padding: 32px 24px; }
+      .nav-cta span { display: none; }
+    }
+
+    /* ─── HIDDEN LANG ─── */
+    [data-en], [data-tr] { }
+    .lang-tr [data-en] { display: none !important; }
+    .lang-en [data-tr] { display: none !important; }
+  </style>
+</head>
+<body class="lang-en">
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-brand">
+    <div class="nav-icon">⏰</div>
+    <span class="nav-title">RemindMe</span>
+  </a>
+  <div class="nav-right">
+    <div class="lang-toggle">
+      <button class="lang-btn active" id="btnEN" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" id="btnTR" onclick="setLang('tr')">TR</button>
+    </div>
+    <a href="#download" class="nav-cta">
+      <span>⬇</span>
+      <span data-en>Download Free</span>
+      <span data-tr>Ücretsiz İndir</span>
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      🔔 <span data-en>Chrome Extension · Free · Open Source</span>
+      <span data-tr>Chrome Eklentisi · Ücretsiz · Açık Kaynak</span>
+    </div>
+    <h1 class="hero-title">
+      <span data-en>Never Forget<br/><span class="grad">Anything Again</span></span>
+      <span data-tr>Hiçbir Şeyi<br/><span class="grad">Unutma Artık</span></span>
+    </h1>
+    <p class="hero-sub">
+      <span data-en>A beautiful, minimal reminder extension for Chrome. Set timely alerts, recurring reminders, and never miss a deadline — all from your toolbar.</span>
+      <span data-tr>Chrome için şık ve minimal bir hatırlatıcı eklentisi. Tekrarlayan hatırlatmalar, bildirimler ve son tarihler — hepsini araç çubuğunuzdan yönetin.</span>
+    </p>
+    <div class="hero-actions">
+      <a href="#download" class="btn-hero btn-hero-primary">
+        ⬇
+        <span data-en>Download Extension</span>
+        <span data-tr>Eklentiyi İndir</span>
+      </a>
+      <a href="#how" class="btn-hero btn-hero-outline">
+        <span data-en>How to Install</span>
+        <span data-tr>Nasıl Kurulur</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- PREVIEW -->
+<div class="preview-section">
+  <div class="ext-preview">
+    <div class="ext-header">
+      <div class="ext-brand">
+        <div class="ext-icon">⏰</div>
+        <span class="ext-name">RemindMe</span>
+      </div>
+    </div>
+    <div class="ext-tabs">
+      <div class="ext-tab a">+ Add</div>
+      <div class="ext-tab">Reminders</div>
+      <div class="ext-tab">Settings</div>
+    </div>
+    <div class="ext-body">
+      <div class="ext-label">Reminder Text</div>
+      <div class="ext-input focus">Team meeting in 10 minutes ⏰</div>
+      <div class="ext-label">Date & Time</div>
+      <div class="ext-input">Today, 15:30</div>
+      <div class="ext-label">Repeat</div>
+      <div class="ext-input">No repeat</div>
+      <div class="ext-btn">Set Reminder</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section>
+  <div class="section-title">
+    <span data-en>Everything you need</span>
+    <span data-tr>İhtiyacın olan her şey</span>
+  </div>
+  <p class="section-sub">
+    <span data-en>Powerful features packed in a lightweight extension</span>
+    <span data-tr>Hafif bir eklentide güçlü özellikler</span>
+  </p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🔔</div>
+      <div class="feature-title" data-en>System Notifications</div>
+      <div class="feature-title" data-tr>Sistem Bildirimleri</div>
+      <div class="feature-desc" data-en>Native OS notifications so you never miss a reminder, even when Chrome is in the background.</div>
+      <div class="feature-desc" data-tr>Chrome arka planda bile çalışırken asla kaçırmamanız için yerel OS bildirimleri.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔁</div>
+      <div class="feature-title" data-en>Recurring Reminders</div>
+      <div class="feature-title" data-tr>Tekrarlayan Hatırlatıcılar</div>
+      <div class="feature-desc" data-en>Set daily, weekly, weekday-only, or hourly repeats for habits and routines.</div>
+      <div class="feature-desc" data-tr>Alışkanlıklar ve rutinler için günlük, haftalık, hafta içi veya saatlik tekrar ayarlayın.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🏷️</div>
+      <div class="feature-title" data-en>Badge Counter</div>
+      <div class="feature-title" data-tr>Rozet Sayacı</div>
+      <div class="feature-desc" data-en>A red badge on the extension icon shows how many triggered reminders are waiting for you.</div>
+      <div class="feature-desc" data-tr>Eklenti simgesindeki kırmızı rozet kaç hatırlatıcının sizi beklediğini gösterir.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💾</div>
+      <div class="feature-title" data-en>Persistent Storage</div>
+      <div class="feature-title" data-tr>Kalıcı Depolama</div>
+      <div class="feature-desc" data-en>All reminders are saved locally in Chrome storage. They survive browser restarts.</div>
+      <div class="feature-desc" data-tr>Tüm hatırlatıcılar Chrome depolama alanında yerel olarak kaydedilir. Tarayıcı yeniden başlatmalarında da kalırlar.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚙️</div>
+      <div class="feature-title" data-en>Customizable Settings</div>
+      <div class="feature-title" data-tr>Özelleştirilebilir Ayarlar</div>
+      <div class="feature-desc" data-en>Toggle notifications, badge counter, and auto-dismiss from the built-in settings panel.</div>
+      <div class="feature-desc" data-tr>Yerleşik ayarlar panelinden bildirimleri, rozet sayacını ve otomatik kapatmayı açıp kapatın.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title" data-en>100% Private</div>
+      <div class="feature-title" data-tr>%100 Gizli</div>
+      <div class="feature-desc" data-en>No tracking, no accounts, no servers. Your reminders never leave your browser.</div>
+      <div class="feature-desc" data-tr>Takip yok, hesap yok, sunucu yok. Hatırlatıcılarınız tarayıcınızdan hiç çıkmaz.</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TO INSTALL -->
+<div class="install-section" id="how">
+  <section>
+    <div class="section-title">
+      <span data-en>How to Install</span>
+      <span data-tr>Nasıl Kurulur</span>
+    </div>
+    <p class="section-sub">
+      <span data-en>Takes less than 60 seconds — no developer skills required</span>
+      <span data-tr>60 saniyeden az sürer — geliştirici bilgisi gerekmez</span>
+    </p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title" data-en>Download the Extension</div>
+          <div class="step-title" data-tr>Eklentiyi İndirin</div>
+          <div class="step-desc" data-en>Click the Download button below and save the <span class="code-tag">remindme-extension.zip</span> file anywhere on your computer.</div>
+          <div class="step-desc" data-tr>Aşağıdaki İndir düğmesine tıklayın ve <span class="code-tag">remindme-extension.zip</span> dosyasını bilgisayarınızdaki herhangi bir yere kaydedin.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title" data-en>Extract the ZIP File</div>
+          <div class="step-title" data-tr>ZIP Dosyasını Çıkartın</div>
+          <div class="step-desc" data-en>Right-click the downloaded ZIP file and select "Extract All" (Windows) or double-click (Mac). You'll get a folder called <span class="code-tag">reminder-extension</span>.</div>
+          <div class="step-desc" data-tr>İndirilen ZIP dosyasına sağ tıklayın ve "Tümünü Çıkart"ı seçin (Windows) veya çift tıklayın (Mac). <span class="code-tag">reminder-extension</span> adında bir klasör elde edersiniz.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title" data-en>Open Chrome Extensions</div>
+          <div class="step-title" data-tr>Chrome Uzantılarını Açın</div>
+          <div class="step-desc" data-en>In Chrome, go to <span class="code-tag">chrome://extensions</span> — paste this in the address bar and press Enter. Or go to Menu → Extensions → Manage Extensions.</div>
+          <div class="step-desc" data-tr>Chrome'da <span class="code-tag">chrome://extensions</span> adresine gidin — bunu adres çubuğuna yapıştırın ve Enter'a basın. Ya da Menü → Uzantılar → Uzantıları Yönet yolunu izleyin.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title" data-en>Enable Developer Mode</div>
+          <div class="step-title" data-tr>Geliştirici Modunu Etkinleştirin</div>
+          <div class="step-desc" data-en>In the top-right corner of the Extensions page, toggle on <span class="code-tag">Developer mode</span>. New buttons will appear in the top-left.</div>
+          <div class="step-desc" data-tr>Uzantılar sayfasının sağ üst köşesinde <span class="code-tag">Geliştirici modu</span>nu açın. Sol üstte yeni düğmeler belirecektir.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title" data-en>Load the Extension</div>
+          <div class="step-title" data-tr>Eklentiyi Yükleyin</div>
+          <div class="step-desc" data-en>Click <span class="code-tag">Load unpacked</span> and select the extracted <span class="code-tag">reminder-extension</span> folder. RemindMe will appear in your extensions list instantly!</div>
+          <div class="step-desc" data-tr><span class="code-tag">Paketlenmemişi yükle</span>'ye tıklayın ve çıkartılan <span class="code-tag">reminder-extension</span> klasörünü seçin. RemindMe uzantı listenizde anında görünecek!</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <div class="step-title" data-en>Pin It to Toolbar</div>
+          <div class="step-title" data-tr>Araç Çubuğuna Sabitleyin</div>
+          <div class="step-desc" data-en>Click the puzzle-piece icon (🧩) in Chrome's toolbar → find RemindMe → click the pin icon. The ⏰ icon will appear in your toolbar — you're done!</div>
+          <div class="step-desc" data-tr>Chrome'un araç çubuğundaki yapboz simgesine (🧩) tıklayın → RemindMe'yi bulun → raptiye simgesine tıklayın. ⏰ simgesi araç çubuğunuzda görünecek — hazırsınız!</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="download-box">
+    <div class="download-title">
+      <span data-en>Ready to install?</span>
+      <span data-tr>Kurmaya hazır mısınız?</span>
+    </div>
+    <div class="download-sub" data-en>Free forever. No account needed. Works on Chrome, Brave, Edge, and any Chromium browser.</div>
+    <div class="download-sub" data-tr>Sonsuza kadar ücretsiz. Hesap gerekmez. Chrome, Brave, Edge ve tüm Chromium tabanlı tarayıcılarda çalışır.</div>
+    <a href="remindme-extension.zip" download class="btn-download">
+      ⬇
+      <span data-en>Download RemindMe — Free</span>
+      <span data-tr>RemindMe'yi İndir — Ücretsiz</span>
+    </a>
+    <div class="download-meta">
+      <span class="download-meta-item"><span class="check">✓</span> <span data-en>No signup</span><span data-tr>Kayıt yok</span></span>
+      <span class="download-meta-item"><span class="check">✓</span> <span data-en>No tracking</span><span data-tr>Takip yok</span></span>
+      <span class="download-meta-item"><span class="check">✓</span> v1.0.0</span>
+      <span class="download-meta-item"><span class="check">✓</span> <span data-en>Open source</span><span data-tr>Açık kaynak</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div>RemindMe Extension © 2026 · Built with ❤️</div>
+  <div style="margin-top:6px; font-size:11px;">
+    <span data-en>Crafted for productivity lovers everywhere</span>
+    <span data-tr>Her yerdeki verimlilik tutkunları için yapıldı</span>
+  </div>
+</footer>
+
+<script>
+  function setLang(lang) {
+    document.body.classList.remove('lang-en', 'lang-tr');
+    document.body.classList.add('lang-' + lang);
+    document.getElementById('btnEN').classList.toggle('active', lang === 'en');
+    document.getElementById('btnTR').classList.toggle('active', lang === 'tr');
+    document.documentElement.lang = lang;
+  }
+</script>
+</body>
+</html>
